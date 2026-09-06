@@ -134,3 +134,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 AUTH_USER_MODEL = "users.User"
+
+SIMPLE_JWT = {
+    "USER_ID_FIELD": "user_id",
+    "USER_ID_CLAIM": "user_id",
+}
