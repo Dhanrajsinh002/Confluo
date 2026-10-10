@@ -14,8 +14,12 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
+
         const originalRequest = error.config;
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        const url: string = originalRequest?.url || "";
+        const isAuthCall = ["/auth/login/", "/auth/register/", "/auth/refresh/"].some((p) => url.includes(p));
+
+        if (error.response?.status === 401 && !originalRequest._retry && !isAuthCall) {
             originalRequest._retry = true;
             const refresh = getRefreshToken();
             if (refresh) {
@@ -24,11 +28,13 @@ api.interceptors.response.use(
                     saveTokens(data.access, data.refresh);
                     return api(originalRequest);
                 } catch {
-                    clearTokens();
-                    window.location.href = "/login";
+                    // fall through logout below
                 }
             }
+            clearTokens();
+            window.location.href = "/login?expired=1";
         }
+
         return Promise.reject(error);
     }
 );

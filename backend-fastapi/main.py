@@ -1,8 +1,10 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.ws_routes import router as ws_router
 
 app = FastAPI(title="Confluo Realtime Service")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 app.add_middleware(
     CORSMiddleware,

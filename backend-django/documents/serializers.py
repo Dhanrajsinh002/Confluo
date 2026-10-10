@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from workspaces.models import Membership
 from .models import Document
 
 class DocumentSerializer(serializers.ModelSerializer):
@@ -25,3 +26,6 @@ class DocumentCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context["request"]
         return Document.objects.create(created_by=request.user, **validated_data)
+
+    def to_representation(self, instance):
+        return DocumentSerializer(instance, context=self.context).data

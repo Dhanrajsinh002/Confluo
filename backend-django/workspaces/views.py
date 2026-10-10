@@ -2,6 +2,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from rest_framework.exceptions import NotFound, ValidationError
 
 from .models import Workspace, Membership
 from .serializers import WorkspaceSerializer, WorkspaceCreateSerializer, InviteMemberSerializer
@@ -28,30 +30,26 @@ class  WorkspaceDetailView(generics.RetrieveAPIView):
     lookup_field = "workspace_id"
 
 class InviteMemberView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    def get_permissions(self):
+        return [permissions.IsAuthenticated(), IsWorkspaceEditorOrOwner()]
 
     def post(self, request, workspace_id):
-        workspace = Workspace.objects.get(workspace_id=workspace_id)
+        workspace = get_object_or_404(Workspace, workspace_id=workspace_id)
         self.check_object_permissions(request, workspace)
 
         serializer = InviteMemberSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         try:
-            user = User.objects.get(email=serializer.validated_data["email"])
-        except User.DoesNotExists:
-            return Response({"error": "User not found!"}, status=status.HTTP_404_NOT_FOUND)
+            user = User.objects.get(email__iexact=serializer.validated_data["email"])
+        except User.DoesNotExist:
+            raise NotFound("No account found for that email. Ask them to register first.")
 
-        membership, created = Workspace.objects.get_or_create(
-            user=user,
-            workspace=workspace,
-            defaults={role: serializer.validated_data["role"]},
+        _, created = Membership.objects.get_or_create(
+            user=user, workspace=workspace,
+            defaults={"role": serializer.validated_data["role"]},
         )
-
         if not created:
-            return Response({"error": "User is already a member of this workspace."}, status=status.HTTP_400_BAD_REQUEST)
+            raise ValidationError({"email": "This user is already a member of the workspace."})
 
         return Response({"message": "Member added."}, status=status.HTTP_201_CREATED)
-
-    def get_permissions(self):
-        return [permissions.IsAuthenticated(), IsWorkspaceEditorOrOwner()]

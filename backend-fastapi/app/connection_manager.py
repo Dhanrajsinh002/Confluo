@@ -10,15 +10,20 @@ class ConnectionManager:
         self.rooms.setdefault(document_id, []).append(websocket)
 
     def disconnect(self, document_id: str, websocket: WebSocket):
-        if document_id in self.rooms:
-            self.rooms[document_id].remove(websocket)
-            if not self.rooms[document_id]:
+        room = self.rooms.get(document_id)
+        if room and websocket in room:
+            room.remove(websocket)
+            if not room:
                 del self.rooms[document_id]
 
     async def broadcast(self, document_id: str, message: bytes, sender: WebSocket):
-        """Send a message to everyone in the room except the sender."""
-        for connection in self.rooms[document_id, []]:
-            if connection != sender:
+        for connection in list(self.rooms.get(document_id, [])):
+            if connection is sender:
+                continue
+            try:
                 await connection.send_bytes(message)
+            except Exception:
+                self.disconnect(document_id, connection)
+
 
 manager = ConnectionManager()

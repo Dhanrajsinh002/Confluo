@@ -10,6 +10,7 @@ export function createYjsConnection(documentId: string) {
 
     const provider = new WebsocketProvider(FASTAPI_WS_URL, documentId, ydoc, {
         params: { token: token || "" },
+        disableBc: true,
     });
 
     const ytext = ydoc.getText("shared-text");

@@ -1,49 +1,67 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { parseApiError } from "@/lib/errors";
+import { useRequireAuth } from "@/lib/useRequireAuth";
 
-interface Document {
-    document_id: number;
-    title: string;
-}
+interface Document { document_id: number; title: string; }
 
-export default function workspaceDocPage() {
-    const workspaceId = useParams();
-    const router = useRouter();
-    const [ docs, setDocs ] = useState<Document[]>([]);
-    const [ newTitle, setNewTitle ] = useState("");
+export default function WorkspaceDocPage() {
+  useRequireAuth();
+  const router = useRouter();
+  const params = useParams<{ workspaceId: string }>();
+  const workspaceId = Array.isArray(params.workspaceId) ? params.workspaceId[0] : params.workspaceId;
 
-    const loadDocs = async () => {
-        const { data } = await api.get(`/api/documents/?workspace=${workspaceId}`);
-        setDocs(data);
-    };
+  const [docs, setDocs] = useState<Document[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
 
-    useEffect(() => {
-        loadDocs();
-    }, [workspaceId]);
+  const loadDocs = async () => {
+    setError("");
+    try {
+      const { data } = await api.get("/documents/", { params: { workspace: workspaceId } });
+      setDocs(data);
+    } catch (err) {
+      setError(parseApiError(err, "Couldn't load documents.").message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const createDoc = async () => {
-        const { data } = await api.post(`/api/documents/`, {
-            title: newTitle || "Untitled Document",
-            workspace: workspaceId,
-        });
-        router.push(`/doc/${data.document_id}`);
-    };
+  useEffect(() => { loadDocs(); }, [workspaceId]);
 
-    return(
-        <div style={{ padding: "2rem" }}>
-            <h2>Documents</h2>
-            <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Document Title" />
-            <button onClick={createDoc}>Create Document</button>
-            <ul>
-                {docs.map((doc) => (
-                    <li key={doc.document_id}>
-                        <a href={`/doc/${doc.document_id}`}>{doc.title}</a>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
+  const createDoc = async () => {
+    setActionError("");
+    try {
+      const { data } = await api.post("/documents/", {
+        title: newTitle || "Untitled Document",
+        workspace: workspaceId,
+      });
+      router.push(`/doc/${data.document_id}`);
+    } catch (err) {
+      const { message, fields } = parseApiError(err, "Couldn't create the document.");
+      setActionError(fields.workspace || fields.title || message);
+    }
+  };
+
+  return (
+    <div style={{ padding: "2rem" }}>
+      <h2>Documents</h2>
+      <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Document title" />
+      <button onClick={createDoc}>Create Document</button>
+      {actionError && <p role="alert" style={{ color: "red" }}>{actionError}</p>}
+
+      {loading && <p>Loading…</p>}
+      {error && <p role="alert" style={{ color: "red" }}>{error} <button onClick={loadDocs}>Retry</button></p>}
+      {!loading && !error && docs.length === 0 && <p>No documents yet.</p>}
+      <ul>
+        {docs.map((doc) => (
+          <li key={doc.document_id}><a href={`/doc/${doc.document_id}`}>{doc.title}</a></li>
+        ))}
+      </ul>
+    </div>
+  );
 }
