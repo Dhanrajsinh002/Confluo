@@ -9,7 +9,7 @@ class Document(models.Model):
         Workspace,
         on_delete=models.CASCADE,
         related_name="documents"
-    ),
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
